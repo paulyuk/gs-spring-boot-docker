@@ -17,10 +17,18 @@
         <relativePath />
     </parent>
 
+<!--
     <properties>
         <docker.image.prefix>springio</docker.image.prefix>
         <java.version>1.8</java.version>
     </properties>
+    -->
+<properties>
+   <azure.containerRegistry>pyacr2</azure.containerRegistry>
+   <docker.image.prefix>${azure.containerRegistry}.azurecr.io</docker.image.prefix>
+   <java.version>1.8</java.version>
+   <maven.build.timestamp.format>yyyyMMddHHmmssSSS</maven.build.timestamp.format>
+</properties>
 
     <build>
         <plugins>
@@ -30,16 +38,48 @@
             </plugin>
             <!-- tag::plugin[] -->
             <plugin>
-                <groupId>com.spotify</groupId>
-                <artifactId>dockerfile-maven-plugin</artifactId>
-                <version>1.3.6</version>
-                <configuration>
-                    <repository>${docker.image.prefix}/${project.artifactId}</repository>
-					<buildArgs>
-						<JAR_FILE>target/${project.build.finalName}.jar</JAR_FILE>
-					</buildArgs>
-                </configuration>
+            <groupId>com.spotify</groupId>
+            <artifactId>docker-maven-plugin</artifactId>
+            <version>0.4.11</version>
+            <configuration>
+                <imageName>${docker.image.prefix}/${project.artifactId}</imageName>
+                <registryUrl>https://${docker.image.prefix}</registryUrl>
+                <serverId>${azure.containerRegistry}</serverId>
+                <dockerDirectory>src/main/docker</dockerDirectory>
+                <resources>
+                    <resource>
+                        <targetPath>/</targetPath>
+                        <directory>${project.build.directory}</directory>
+                        <include>${project.build.finalName}.jar</include>
+                    </resource>
+                </resources>
+            </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>com.microsoft.azure</groupId>
+                <artifactId>azure-webapp-maven-plugin</artifactId>
+                <version>0.1.3</version>
+                <configuration>
+                    <authentication>
+                        <serverId>azure-auth</serverId>
+                    </authentication>
+                    <resourceGroup>wingtiptoysresources</resourceGroup>
+                    <appName>maven-linux-app-${maven.build.timestamp}</appName>
+                    <region>westus</region>
+                    <containerSettings>
+                        <imageName>${docker.image.prefix}/${project.artifactId}</imageName>
+                        <registryUrl>https://${docker.image.prefix}</registryUrl>
+                        <serverId>${azure.containerRegistry}</serverId>
+                    </containerSettings>
+                    <appSettings>
+                        <property>
+                            <name>PORT</name>
+                            <value>8080</value>
+                        </property>
+                    </appSettings>
+                </configuration>
+                </plugin>
             <!-- end::plugin[] -->
             
             <plugin>
